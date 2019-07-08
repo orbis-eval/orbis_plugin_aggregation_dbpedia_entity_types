@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 base_pattern = "https?:\/\/(www\.)?(wikidata|dbpedia|schema|umbel|xmlns)\.(org|com)\/?(foaf\/0\.1|class(\/yago)?|entity|ontology|umbel\/rc)?\/"
 
 organization_pattern = [
