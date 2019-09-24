@@ -3,10 +3,14 @@
 import regex
 from SPARQLWrapper import SPARQLWrapper
 from SPARQLWrapper import JSON
+from SPARQLWrapper import SPARQLExceptions
 
 from orbis_eval import app
 
 from . import regex_patterns
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 class Main(object):
@@ -31,11 +35,11 @@ class Main(object):
                 <{uri}> <http://dbpedia.org/ontology/wikiPageRedirects> ?redirected .
             }}
         """
-        sparql = SPARQLWrapper(endpoint_url)
-        sparql.setQuery(redirect_query)
-        sparql.setReturnFormat(JSON)
-        results = sparql.query().convert()
         try:
+            sparql = SPARQLWrapper(endpoint_url)
+            sparql.setQuery(redirect_query)
+            sparql.setReturnFormat(JSON)
+            results = sparql.query().convert()
             redirect_uri = results["results"]["bindings"][0]["redirected"]["value"]
         except Exception:
             redirect_uri = uri
@@ -56,15 +60,23 @@ class Main(object):
             f'\n  <{uri}> (rdf:type)* ?obj .'
             f'\n}}'
         )
-        sparql = SPARQLWrapper(endpoint_url)
-        sparql.setQuery(query)
-        sparql.setReturnFormat(JSON)
-        results = sparql.query().convert()
-        if len(results["results"]["bindings"]) <= 0:
+        # logger.debug(f"sparql-query:\n{query}\n")
+
+        try:
+            sparql = SPARQLWrapper(endpoint_url)
+            sparql.setQuery(query)
+            sparql.setReturnFormat(JSON)
+            results = sparql.query().convert()
+
+            if len(results["results"]["bindings"]) <= 0:
+                entity_type = "NoType"
+            else:
+                results = [result["obj"]["value"] for result in results["results"]["bindings"]]
+                entity_type = cls.categorize_types(results)
+        except SPARQLExceptions.QueryBadFormed:
+            logger.debug(f"erroneous sparql-query:\n{query}\n")
             entity_type = "NoType"
-        else:
-            results = [result["obj"]["value"] for result in results["results"]["bindings"]]
-            entity_type = cls.categorize_types(results)
+
         return entity_type
 
     @classmethod
@@ -121,7 +133,7 @@ class Main(object):
             else:
                 if not_found_uris:
                     not_found_uris.append(result)
-        app.logger.debug(f"Entity type pattern matching results: {entity_types}")
+        logger.debug(f"Entity type pattern matching results: {entity_types}")
         max_entity_type = ('notFound', 1)
         for entity_type, count in entity_types.items():
             if count >= max_entity_type[1]:
@@ -136,10 +148,10 @@ class Main(object):
         entity_type = cls.get_most_mentioned_entity_type(results, not_found_uris=None)
         # entity_type = cls.get_first_best_entity_type(results, not_found_uris=None)
         if not entity_type or entity_type == 'notInWiki':
-            app.logger.warning(f"No entity type found")
+            logger.warning(f"[dbpedia-entity-types] No entity type found")
             entity_type = "NoType"
         else:
-            app.logger.debug(f"Entity type found: {entity_type}")
+            logger.debug(f"Entity type found: {entity_type}")
         return entity_type
 
     """
