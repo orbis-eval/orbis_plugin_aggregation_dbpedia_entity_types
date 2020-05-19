@@ -5,7 +5,7 @@ from SPARQLWrapper import SPARQLWrapper
 from SPARQLWrapper import JSON
 from SPARQLWrapper import SPARQLExceptions
 
-from orbis_eval import app
+from orbis_eval.core import app
 
 from . import regex_patterns
 
@@ -21,9 +21,17 @@ class Main(object):
 
     @classmethod
     def normalize_entity_type(cls, entity_type: str) -> str:
-        mapping: dict = {"location": "place", "organisation": "organization"}
+        mapping = {
+            "location": "place",
+            "organisation": "organization",
+            "notype": "undefined",
+            "notfound": "undefined"
+            }
+
+        old_entity_type = entity_type
         entity_type = entity_type.strip("/").split("/")[-1]
         entity_type = mapping.get(entity_type.lower(), entity_type).capitalize()
+        # print(f"Transforming: {old_entity_type} -> {entity_type}")
         return entity_type
 
     @classmethod
@@ -69,13 +77,13 @@ class Main(object):
             results = sparql.query().convert()
 
             if len(results["results"]["bindings"]) <= 0:
-                entity_type = "NoType"
+                entity_type = "undefined"
             else:
                 results = [result["obj"]["value"] for result in results["results"]["bindings"]]
                 entity_type = cls.categorize_types(results)
         except SPARQLExceptions.QueryBadFormed:
             logger.debug(f"erroneous sparql-query:\n{query}\n")
-            entity_type = "NoType"
+            entity_type = "undefined"
 
         return entity_type
 
@@ -133,6 +141,7 @@ class Main(object):
             else:
                 if not_found_uris:
                     not_found_uris.append(result)
+
         logger.debug(f"Entity type pattern matching results: {entity_types}")
         max_entity_type = ('notFound', 1)
         for entity_type, count in entity_types.items():
@@ -149,7 +158,7 @@ class Main(object):
         # entity_type = cls.get_first_best_entity_type(results, not_found_uris=None)
         if not entity_type or entity_type == 'notInWiki':
             logger.warning(f"[dbpedia-entity-types] No entity type found")
-            entity_type = "NoType"
+            entity_type = "undefined"
         else:
             logger.debug(f"Entity type found: {entity_type}")
         return entity_type
