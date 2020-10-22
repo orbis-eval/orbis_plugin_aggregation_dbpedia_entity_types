@@ -28,10 +28,10 @@ class Main(object):
             "notfound": "undefined"
             }
 
-        old_entity_type = entity_type
         entity_type = entity_type.strip("/").split("/")[-1]
-        entity_type = mapping.get(entity_type.lower(), entity_type).capitalize()
-        # print(f"Transforming: {old_entity_type} -> {entity_type}")
+        mapped_entity_type = mapping.get(entity_type.lower(), None)
+        if mapped_entity_type:
+            entity_type = mapped_entity_type.capitalize()
         return entity_type
 
     @classmethod
